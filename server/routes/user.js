@@ -7,4 +7,6 @@ router.post('/login', ctrl.login)
 router.get('/current', verifyAccessToken, ctrl.getCurrent)
 router.post('/refreshtoken', ctrl.refreshAccessToken)
 router.get('/logout', ctrl.logout)
+router.get('/forgotpassword', ctrl.forgotPassword)
+router.get('/resetpassword', ctrl.resetPassword)
 module.exports=router

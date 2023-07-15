@@ -2,6 +2,8 @@ const User=require('../models/user')
 const asyncHandler=require('express-async-handler')
 const {generateAccessToken, generateRefreshToken}=require('../middlewares/jwt')
 const jwt=require('jsonwebtoken')
+const sendMail=require('../ultils/sendMail')
+const crypto=require('crypto')
 
 const register=asyncHandler(async(req, res)=>{
     const {firstname, lastname, email, password}=req.body
@@ -87,10 +89,50 @@ const logout=asyncHandler(async(req, res)=>{
     })
 })
 
+const forgotPassword=asyncHandler(async(req, res)=>{
+    const {email}=req.query
+    if(!email)throw new Error('Missing email in request')
+    const user=await User.findOne({email})
+    if(!user){
+        throw new Error('User not found')
+    } 
+    const resetToken=user.createPasswordChangedToken()
+    await user.save()
+    const html=`Please click blow link to reset password, this expires in 15 minutes ago. <a href="${process.env.URL_SERVER}/api/user/reset-password/${resetToken}">Click Here</a>`
+    const data={
+        email,
+        html
+    }
+    const re=await sendMail(data)
+    return res.status(200).json({
+       success: true,
+       rs
+    })
+})
+
+const resetPassword=asyncHandler(async(req, res)=>{
+    const {token, password}=req.body
+    if(!token || !password)throw new Error('Missing field in request')
+    const passwordResetToken=crypto.createHash('sha256').update(token).digest('hex')
+    const user=await User.findOne({passwordResetToken, passwordResetExpires: {$gt: Date.now()}})
+    if(!user)throw new Error('Invalid reset token')
+    user.password=password
+    user.passwordResetToken=undefined
+    user.passwordResetExpires=undefined
+    user.passwordChangeAt=Date.now()
+    await user.save()
+    return res.status(200).json({
+        success: user ? true : false,
+        mes: user ? 'Updated Password' : 'Something wrong'
+    })
+})
+
 module.exports={
     register,
     login,
     getCurrent,
     refreshAccessToken,
     logout,
+    forgotPassword,
+    resetPassword,
 }
